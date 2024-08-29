@@ -1,6 +1,6 @@
 ---
 - name: Oracle 9.4 OS base setup
-  hosts: all
+  hosts: localhost
   gather_facts: true
   become: true
   vars:
