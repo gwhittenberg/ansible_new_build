@@ -1,1 +1,100 @@
 ---
+- name: Oracle 9.4 OS base setup
+  hosts: all
+  gather_facts: true
+  become: true
+  vars:
+    ansible_python_interpreter: auto_silent
+  tasks:
+
+    - name: Disable firewalld
+      ansible.builtin.service:
+        name: firewalld
+        enabled: false
+        masked: no
+
+    - name: Stop firewalld
+      ansible.builtin.service:
+        name: firewalld
+        state: stopped
+
+    - name: Add the user 'admin/admin' with a bash shell, appending the group 'wheel'
+      ansible.builtin.user:
+        name: admin
+        # run mkpasswd --method=sha-512
+        # password=admin
+        password: '$6$J6fhbvdBT860PTrX$uBdOSVlF9ay8uiLM0oicuMl61R.RAelsYszUfjf290UocDQOeyl22uR.Go59X.DjsEqsIm6BfFaCdIUZKyc931'
+        shell: /bin/bash
+        groups: wheel
+        append: yes
+
+    - name: Install epel repo
+      dnf:
+        name:
+          - 'https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm'
+        disable_gpg_check: yes
+        state: latest
+
+    - name: Install epel packages
+      dnf:
+        name:
+          - htop
+          - mlocate
+        state: latest
+
+    - name: updatedb for locate
+      ansible.builtin.command: updatedb
+
+    - name: DNF update the system
+      dnf:
+        name:  "*"
+        state: latest
+
+    - name: Set timezone
+      ansible.builtin.command: 'timedatectl set-timezone America/Phoenix'
+
+    - name: Disable SELINUX
+      ansible.builtin.shell:
+        cmd: sed -i 's/^SELINUX=.*/SELINUX=disabled/g' /etc/sysconfig/selinux
+
+    - name: Disable SELINUX
+      ansible.builtin.shell:
+        cmd: sed -i 's/^SELINUX=.*/SELINUX=disabled/g' /etc/selinux/config
+
+    - name: Install net-tools wget curl nmap vim tree dnsutils nfs-utils git
+      dnf:
+        name:
+          - net-tools
+          - wget
+          - curl
+          - nmap
+          - vim
+          - tree
+          - dnsutils
+          - nfs-utils
+          - git
+
+    - name: Create /root/.vimrc file
+      copy:
+        src: "files/.vimrc"
+        dest: "/root/.vimrc"
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: Clean mount nsf_share from /etc/fstab
+      ansible.builtin.shell:
+        cmd: sed -i '/nfs_share/d' /etc/fstab
+
+    - name: Create /nfs_share directory if it does not exist
+      ansible.builtin.file:
+        path: /nfs_share
+        state: directory
+        mode: '0777'
+
+    - name: Add mount nfs_share to /etc/fstab
+      ansible.builtin.shell:
+        cmd: echo '192.168.10.6:/volume1/nfs_share /nfs_share nfs defaults  0 0' >> /etc/fstab
+
+    - name: Ping host after reboot
+      ansible.builtin.ping:
